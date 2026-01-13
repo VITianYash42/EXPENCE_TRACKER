@@ -15,6 +15,7 @@
                 {% if session.user_id %}
                     <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                     <a class="nav-link" href="{{ url_for('expenses') }}">Expenses</a>
+                    <a class="nav-link" href="{{ url_for('budgets') }}">Budgets</a>
                     <a class="nav-link" href="{{ url_for('analytics') }}">Analytics</a>
                     <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
                 {% else %}
