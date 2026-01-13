@@ -9,7 +9,7 @@
 </div>
 
 <div class="row mt-4">
-    <div class="col-md-6">
+    <div class="col-md-3">
         <div class="card text-white bg-primary mb-3">
             <div class="card-body">
                 <h5 class="card-title">Total Expenses</h5>
@@ -17,7 +17,59 @@
             </div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h5 class="card-title">This Month</h5>
+                <h2 class="card-text">${{ "%.2f"|format(monthly_expenses) }}</h2>
+            </div>
+        </div>
+    </div>
+    {% if total_budget > 0 %}
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Budget</h5>
+                <h2 class="card-text">${{ "%.2f"|format(total_budget) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white {% if total_budget_spent > total_budget %}bg-danger{% elif total_budget_spent > total_budget * 0.8 %}bg-warning{% else %}bg-success{% endif %} mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Budget Spent</h5>
+                <h2 class="card-text">${{ "%.2f"|format(total_budget_spent) }}</h2>
+                <small>{{ "%.1f"|format((total_budget_spent / total_budget * 100) if total_budget > 0 else 0) }}% used</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+{% if budget_alerts %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">⚠️ Budget Alerts</h5>
+            </div>
+            <div class="card-body">
+                {% for alert in budget_alerts %}
+                <div class="alert alert-{% if alert.status == 'exceeded' %}danger{% else %}warning{% endif %} mb-2" role="alert">
+                    <strong>{{ alert.category }}:</strong> 
+                    {% if alert.status == 'exceeded' %}
+                        Budget exceeded by ${{ "%.2f"|format(-alert.remaining) }} ({{ "%.1f"|format(alert.percentage) }}% used)
+                    {% else %}
+                        {{ "%.1f"|format(alert.percentage) }}% of budget used. ${{ "%.2f"|format(alert.remaining) }} remaining.
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <a href="{{ url_for('budgets') }}" class="btn btn-sm btn-outline-primary">Manage Budgets</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="row mt-4">
     <div class="col-12">
