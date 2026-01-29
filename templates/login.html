@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends "base.html" %}
 
 {% block content %}
@@ -27,3 +28,58 @@
     </div>
 </div>
 {% endblock %}
+=======
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header text-center">
+                <h4 class="mb-0">Welcome Back</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="username"
+                            name="username"
+                            placeholder="Enter your username"
+                            required
+                            aria-required="true"
+                        >
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Password</label>
+                        <input
+                            type="password"
+                            class="form-control"
+                            id="password"
+                            name="password"
+                            placeholder="Enter your password"
+                            required
+                            aria-required="true"
+                        >
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" aria-label="Login">
+                        Login
+                    </button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <p class="mb-0">
+                        Don’t have an account?
+                        <a href="{{ url_for('signup') }}">Create one</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+>>>>>>> eae67c6cd06c36c9dd29986198a9105c3c897a05

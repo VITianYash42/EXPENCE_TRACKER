@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends "base.html" %}
 
 {% block content %}
@@ -56,4 +57,209 @@
         </div>
     </div>
 </div>
+=======
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Dashboard</h2>
+        <form method="post" action="{{ url_for('set_currency') }}">
+            {% set label_text = "Select Your Desired Currency (Everything will be converted to this)" %}
+            {% set auto_submit = true %}
+            {% include "partials/common_input.html" %}
+        </form>
+      
+        <p>Welcome back, {{ session.username }}!</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Expenses</h5>
+                <h2 class="card-text">{{ currency }} {{ "%.2f"|format(total_expenses) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h5 class="card-title">This Month</h5>
+                <h2 class="card-text">{{ currency }} {{ "%.2f"|format(monthly_expenses) }}</h2>
+            </div>
+        </div>
+    </div>
+    {% if total_budget > 0 %}
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Budget</h5>
+                <h2 class="card-text">{{ currency }} {{ "%.2f"|format(total_budget) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white {% if total_budget_spent > total_budget %}bg-danger{% elif total_budget_spent > total_budget * 0.8 %}bg-warning{% else %}bg-success{% endif %} mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Budget Spent</h5>
+                <h2 class="card-text">{{ currency }} {{ "%.2f"|format(total_budget_spent) }}</h2>
+                <small>{{ "%.1f"|format((total_budget_spent / total_budget * 100) if total_budget > 0 else 0) }}% used</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if budget_alerts %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">⚠️ Budget Alerts</h5>
+            </div>
+            <div class="card-body">
+                {% for alert in budget_alerts %}
+                <div class="alert alert-{% if alert.status == 'exceeded' %}danger{% else %}warning{% endif %} mb-2" role="alert">
+                    <strong>{{ alert.category }}:</strong> 
+                    {% if alert.status == 'exceeded' %}
+                    Budget exceeded by {{ currency }} {{ "%.2f"|format(-alert.remaining) }}  ({{ "%.1f"|format(alert.percentage) }}% used)
+                    {% else %}
+                        {{ "%.1f"|format(alert.percentage) }}% of budget used. {{ currency }} {{ "%.2f"|format(alert.remaining) }} remaining.
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <a href="{{ url_for('budgets') }}" class="btn btn-sm btn-outline-primary">Manage Budgets</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Expenses</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_expenses %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>In your currency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for expense in recent_expenses %}
+                            <tr>
+                                <td>{{ expense['date'] }}</td>
+                                <td>{{ expense['category'] }}</td>
+                                <td>{{ expense['description'] or '-' }}</td>
+                                <td>{{ expense['currency'] }} {{ "%.2f"|format(expense['amount']) }}</td>
+                                <td>{{ currency }} {{ "%.2f"|format(expense['amount_display']) }}</td>
+
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No expenses recorded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= AI CHATBOT ================= -->
+<div class="row mt-5">
+    <div class="col-12 col-lg-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">🤖 AI Finance Assistant</h5>
+                <small class="text-muted">Ask about your expenses, budgets & savings</small>
+            </div>
+
+            <div class="card-body" style="height: 320px; overflow-y: auto;" id="chat-messages">
+                <div class="text-muted">
+                    👋 Hi {{ session.username }}!  
+                    Ask things like:
+                    <ul>
+                        <li>How much did I spend this month?</li>
+                        <li>Which category is highest?</li>
+                        <li>Am I exceeding my budget?</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="chat-input"
+                        class="form-control"
+                        placeholder="Ask a question about your expenses..."
+                        onkeypress="if(event.key==='Enter') sendMessage()"
+                    >
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function sendMessage() {
+    const input = document.getElementById("chat-input");
+    const message = input.value.trim();
+    if (!message) return;
+
+    const chatBox = document.getElementById("chat-messages");
+
+    // User message
+    chatBox.innerHTML += `
+        <div class="mb-2">
+            <strong>You:</strong> ${message}
+        </div>
+    `;
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+    input.value = "";
+
+    try {
+        const response = await fetch("/chatbot", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        chatBox.innerHTML += `
+            <div class="mb-3 text-primary">
+                <strong>AI:</strong> ${data.reply}
+            </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+    } catch (error) {
+        chatBox.innerHTML += `
+            <div class="text-danger">
+                <strong>AI:</strong> Something went wrong. Please try again.
+            </div>
+        `;
+    }
+}
+</script>
+
+>>>>>>> eae67c6cd06c36c9dd29986198a9105c3c897a05
 {% endblock %}
