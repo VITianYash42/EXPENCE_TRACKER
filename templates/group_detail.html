@@ -53,11 +53,11 @@
                     <li class="list-group-item d-flex justify-content-between align-items-start {% if exp.description == 'Settlement' %}bg-light{% endif %}">
                         <div class="flex-grow-1">
                             {% if exp.description == 'Settlement' %}
-                                <span class="badge bg-success me-2">PAYMENT</span>
+                                <span class="badge bg-success me-2">PAID</span>
                                 <strong>{{ exp.payer_name }}</strong> paid
                             {% else %}
                                 <strong>{{ exp.description }}</strong>
-                                <div class="text-muted small">Paid by {{ exp.payer_name }} • {{ exp.date }}</div>
+                                <div class="text-muted small">Added by {{ exp.payer_name }} • {{ exp.date }}</div>
                             {% endif %}
                         </div>
                         <div class="text-end">
@@ -100,19 +100,19 @@
                         {% for debt in debts %}
                         <div class="p-3 mb-3 border rounded bg-white">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span><strong>{{ debt.from }}</strong> owes <strong>{{ debt.to }}</strong></span>
+                                <span><strong>{{ debt.from }}</strong> pays <strong>{{ debt.to }}</strong></span>
                                 <span class="text-danger fw-bold">₹{{ debt.amount }}</span>
                             </div>
                             <form action="{{ url_for('settle_up', group_id=group.id) }}" method="POST" class="d-flex gap-2">
                                 <input type="hidden" name="from_id" value="{{ debt.from_id }}">
                                 <input type="hidden" name="to_id" value="{{ debt.to_id }}">
                                 <input type="number" name="amount" class="form-control form-control-sm" placeholder="Amount" max="{{ debt.amount }}" step="0.01" required>
-                                <button type="submit" class="btn btn-sm btn-success">Pay</button>
+                                <button type="submit" class="btn btn-sm btn-success">Done</button>
                             </form>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="text-center text-success mb-0">All settled up!</p>
+                        <p class="text-center text-success mb-0">No pending payments!</p>
                     {% endif %}
                 </div>
             </div>
