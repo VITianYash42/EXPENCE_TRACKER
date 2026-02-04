@@ -8,6 +8,8 @@ import time
 import os
 import io
 import pandas as pd
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
@@ -17,6 +19,12 @@ from groq import Groq
 # --- CONFIGURATION ---
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change to random key
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 _RATES_CACHE = {
     "timestamp": 0,
@@ -278,6 +286,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def signup():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -323,6 +332,7 @@ def signup():
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
