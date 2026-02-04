@@ -8,7 +8,6 @@ import time
 import os
 import io
 import pandas as pd
-from xhtml2pdf import pisa
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from reportlab.lib.pagesizes import letter
@@ -608,15 +607,15 @@ def expenses():
     ).fetchall()
     conn.close()
     
-    categories = ['Food', 'Transportation', 'Entertainment', 'Shopping', 'Bills', 'Healthcare', 'Other']
-    return render_template('expenses.html', expenses=expenses_list, categories=categories)
+    user_categories = get_user_categories(session['user_id'])
+    return render_template('expenses.html', expenses=expenses_list, categories=user_categories)
 
 @app.route('/search_expenses')
 def search_expenses():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    # [FIX] Define user_categories here so it is available for the return statement
+    # Get user categories (FIXED: Defined before use)
     user_categories = get_user_categories(session['user_id'])
     
     # Get filter parameters
@@ -649,7 +648,7 @@ def search_expenses():
             query += f' AND category IN ({placeholders})'
             params.extend(selected_categories)
     
-    # Amount range filter
+    # Amount range filter (using amount_usd for consistent comparison)
     if amount_min:
         try:
             min_usd = convert_to_usd(float(amount_min), session.get('currency', 'USD'))
@@ -665,12 +664,15 @@ def search_expenses():
         except ValueError:
             pass
     
-    # Keyword search
+    # Keyword search in description
     if keyword:
+        # [FIX] Ensure keyword is a string
+        if not isinstance(keyword, str):
+            keyword = str(keyword)
         query += ' AND description LIKE ?'
         params.append(f'%{keyword}%')
     
-    # Sorting
+    # Sorting (validate sort_by to prevent SQL injection)
     valid_sort_columns = {'date': 'date', 'amount': 'amount_usd', 'category': 'category'}
     sort_column = valid_sort_columns.get(sort_by, 'date')
     sort_direction = 'ASC' if sort_order.lower() == 'asc' else 'DESC'
@@ -692,7 +694,6 @@ def search_expenses():
         'sort_order': sort_order
     }
     
-    # [FIX] user_categories is now correctly defined above
     return render_template('expenses.html', expenses=expenses_list, categories=user_categories, filters=filters, is_filtered=True)
 
 @app.route('/add_expense', methods=['GET', 'POST'])
@@ -761,7 +762,6 @@ def edit_expense(expense_id):
     user_categories = get_user_categories(session['user_id'])
     return render_template('edit_expense.html', expense=expense, categories=user_categories, selected_currency=expense['currency'])
 
-# ✅ BUG FIXED HERE: delete_expense (Unreachable code issue resolved)
 @app.route('/delete_expense/<int:expense_id>')
 def delete_expense(expense_id):
     if 'user_id' not in session:
@@ -1170,62 +1170,70 @@ def export_data(data_type, format):
     user_id = session['user_id']
     conn = get_db_connection()
     
-    # 1. Fetch Data
     if data_type == 'expenses':
         query = 'SELECT date, category, description, amount, currency, amount_usd FROM expenses WHERE user_id = ? ORDER BY date DESC'
-        filename = f"Expenses_Report_{datetime.now().strftime('%Y-%m-%d')}"
+        filename = f"expenses_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     elif data_type == 'budgets':
         query = 'SELECT category, amount, currency, amount_usd, period, start_date FROM budgets WHERE user_id = ? ORDER BY category'
-        filename = f"Budgets_Report_{datetime.now().strftime('%Y-%m-%d')}"
+        filename = f"budgets_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     else:
-        conn.close()
         return "Invalid data type", 400
 
     df = pd.read_sql_query(query, conn, params=(user_id,))
     conn.close()
 
-    # 2. Handle CSV/Excel (Existing Logic)
     if format == 'csv':
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
-        return send_file(io.BytesIO(output.getvalue().encode()), mimetype='text/csv', as_attachment=True, download_name=f"{filename}.csv")
+        return send_file(
+            io.BytesIO(output.getvalue().encode()),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f"{filename}.csv"
+        )
     
     elif format == 'xlsx':
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name=data_type.capitalize())
         output.seek(0)
-        return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f"{filename}.xlsx")
-    
-    # 3. Handle Professional PDF (New Logic - Issue #31)
-    elif format == 'pdf':
-        # Prepare data for Jinja template
-        data_list = df.to_dict('records')
-        total_amount = round(df['amount_usd'].sum(), 2) if 'amount_usd' in df else 0
-        currency = session.get('currency', 'USD')
-
-        # Convert amounts to display currency if needed (simplified for report)
-        # Note: Ideally, you'd convert each row, but for now we list raw values or USD
-        
-        html = render_template(
-            'report_pdf.html', 
-            data=data_list, 
-            date=datetime.now().strftime('%Y-%m-%d %H:%M'),
-            total_amount=total_amount,
-            count=len(df),
-            currency="USD" # Defaulting to base currency for consistency in report
-        )
-        
-        pdf_output = io.BytesIO()
-        pisa_status = pisa.CreatePDF(io.StringIO(html), dest=pdf_output)
-        
-        if pisa_status.err:
-            return f"PDF generation error: {pisa_status.err}", 500
-            
-        pdf_output.seek(0)
         return send_file(
-            pdf_output,
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f"{filename}.xlsx"
+        )
+    
+    elif format == 'pdf':
+        output = io.BytesIO()
+        doc = SimpleDocTemplate(output, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        elements.append(Paragraph(f"{data_type.capitalize()} Report", styles['Title']))
+        elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
+        elements.append(Paragraph("<br/><br/>", styles['Normal']))
+        
+        # Table
+        data = [df.columns.tolist()] + df.values.tolist()
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        output.seek(0)
+        return send_file(
+            output,
             mimetype='application/pdf',
             as_attachment=True,
             download_name=f"{filename}.pdf"
@@ -1631,8 +1639,6 @@ def delete_group_expense(group_id, expense_id):
     
     flash('Expense deleted successfully!')
     return redirect(url_for('group_detail', group_id=group_id))
-# ================= CHATBOT =================
-
 
 if __name__ == '__main__':
     init_db()
